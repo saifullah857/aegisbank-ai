@@ -1,0 +1,50 @@
+# docker compose up --build        (copy .env.example to .env first and fill in the two required secrets)
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aegis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-aegisbank}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+    restart: unless-stopped
+
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-aegis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aegisbank}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (python -c "import secrets;print(secrets.token_urlsafe(48))")}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: '["http://localhost:8080"]'
+      SEED_ON_START: ${SEED_ON_START:-true}
+      FORWARDED_ALLOW_IPS: "*"   # trust nginx's X-Forwarded-For so rate limits are per real client, not one shared bucket
+    volumes: [backend_data:/app/data]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports: ["8000:8000"]
+    restart: unless-stopped
+
+  frontend:
+    build: { context: frontend }
+    depends_on: [backend]
+    ports: ["8080:8080"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  backend_data:

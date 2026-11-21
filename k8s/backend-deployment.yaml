@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: backend, namespace: aegisbank, labels: { app: backend } }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector: { matchLabels: { app: backend } }
+  template:
+    metadata: { labels: { app: backend } }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, fsGroup: 10001 }
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: backend
+          image: ghcr.io/your-org/aegisbank-backend:latest
+          command: ["/app/scripts/start.sh", "serve"]
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom: [{ configMapRef: { name: aegis-config } }]
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: aegis-secrets, key: DATABASE_URL } } }
+            - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: aegis-secrets, key: JWT_SECRET } } }
+            - { name: GROQ_API_KEY, valueFrom: { secretKeyRef: { name: aegis-secrets, key: GROQ_API_KEY, optional: true } } }
+          resources:
+            requests: { cpu: 250m, memory: 768Mi }
+            limits: { cpu: "1", memory: 2Gi }
+          startupProbe:    # model training + policy indexing on boot can take a minute
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:  # only receives traffic when the database is reachable
+            httpGet: { path: /api/v1/health/ready, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }
+          volumeMounts: [{ name: data, mountPath: /app/data }]
+      volumes: [{ name: data, emptyDir: {} }]   # per-pod model + vector index, rebuilt from the database/policies at boot

@@ -1,0 +1,15 @@
+*.db
+*.joblib
+*.pyc
+.env
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+**/app/ml/artifacts/
+**/app/rag/artifacts/
+backend/data/
+hf_space/
+dist/
+frontend/dist/
+node_modules/
+venv/

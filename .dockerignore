@@ -1,0 +1,15 @@
+.git
+.github
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/venv
+**/*.db
+.env
+backend/app/ml/artifacts
+backend/app/rag/artifacts
+backend/data
+k8s

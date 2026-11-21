@@ -115,6 +115,15 @@ flowchart LR
 
 ---
 
+## 🆕 Ledger, Held Payments & Assistant
+
+* **Double-entry ledger** — accounts, append-only ledger entries, `Decimal` money, row locking, `Idempotency-Key`, overdraft protection, and `GET /ledger/reconcile`.
+* **Held payments** — HIGH/CRITICAL payments do *not* move money until an analyst **releases** or **declines** them (both audited).
+* **Assistant** — a read-only chatbot that explains the whole system (documentation retrieval + live DB counts; optional Groq LLM; Urdu/Roman-Urdu capable).
+* **Deploy** — see [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) (Hugging Face Spaces + Vercel) and [`docs/ISSUES_AND_FIXES.md`](docs/ISSUES_AND_FIXES.md).
+
+---
+
 ## 🌟 Key Features
 
 <table>

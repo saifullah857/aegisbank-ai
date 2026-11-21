@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: aegis-config, namespace: aegisbank }
+data:
+  ENVIRONMENT: "production"
+  GROQ_MODEL: "llama-3.3-70b-versatile"
+  REDIS_URL: "redis://redis:6379/0"
+  CORS_ORIGINS: '["http://aegisbank.local"]'
+  POSTGRES_DB: "aegisbank"
+  POSTGRES_USER: "aegis"
+  SEED_ON_START: "true"

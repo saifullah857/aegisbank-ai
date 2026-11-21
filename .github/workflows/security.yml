@@ -1,0 +1,53 @@
+name: Security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "0 3 * * 1" }]
+
+permissions: { contents: read, security-events: write }
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+  python-deps:
+    name: Python dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pip-audit && pip-audit -r backend/requirements.txt --progress-spinner off
+
+  node-deps:
+    name: Node dependency audit (npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd frontend && npm ci --no-audit --no-fund && npm audit --audit-level=high
+
+  trivy-fs:
+    name: Filesystem + IaC scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with: { scan-type: fs, scan-ref: ., scanners: "vuln,secret,misconfig", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1", skip-dirs: "frontend/node_modules" }
+
+  codeql:
+    name: CodeQL static analysis
+    runs-on: ubuntu-latest
+    strategy: { matrix: { language: [python, javascript-typescript] } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: { languages: "${{ matrix.language }}" }
+      - uses: github/codeql-action/analyze@v3
